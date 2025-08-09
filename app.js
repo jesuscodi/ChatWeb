@@ -1,6 +1,6 @@
 // Firebase desde CDN
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, push, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 // 🔹 CONFIGURACIÓN FIREBASE (pon tus datos aquí)
 const firebaseConfig = {
@@ -17,16 +17,17 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// Variables globales
 let username = "";
 
-// DOM elements
+// DOM
 const loginSection = document.getElementById("login-section");
 const chatSection = document.getElementById("chat-section");
 const chatBox = document.getElementById("chat-box");
 const startChatBtn = document.getElementById("start-chat");
 const sendBtn = document.getElementById("send");
 const messageInput = document.getElementById("message");
+const emojiBtn = document.getElementById("emoji-btn");
+const emojiPicker = document.getElementById("emoji-picker");
 
 // Iniciar chat
 startChatBtn.addEventListener("click", () => {
@@ -40,7 +41,12 @@ startChatBtn.addEventListener("click", () => {
 });
 
 // Enviar mensaje
-sendBtn.addEventListener("click", () => {
+sendBtn.addEventListener("click", enviarMensaje);
+messageInput.addEventListener("keypress", e => {
+    if (e.key === "Enter") enviarMensaje();
+});
+
+function enviarMensaje() {
     const mensaje = messageInput.value.trim();
     if (mensaje !== "") {
         const mensajesRef = ref(db, "mensajes");
@@ -51,7 +57,7 @@ sendBtn.addEventListener("click", () => {
         });
         messageInput.value = "";
     }
-});
+}
 
 // Escuchar mensajes
 function escucharMensajes() {
@@ -67,3 +73,13 @@ function escucharMensajes() {
         chatBox.scrollTop = chatBox.scrollHeight;
     });
 }
+
+// Mostrar/Ocultar emoji picker
+emojiBtn.addEventListener("click", () => {
+    emojiPicker.style.display = emojiPicker.style.display === "none" ? "block" : "none";
+});
+
+// Insertar emoji en input
+emojiPicker.addEventListener("emoji-click", event => {
+    messageInput.value += event.detail.unicode;
+});
