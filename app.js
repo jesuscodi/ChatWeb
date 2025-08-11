@@ -1,6 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, push, set, onValue, remove, get, onDisconnect } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 // Configuración de Firebase
 const firebaseConfig = {
@@ -16,7 +15,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
-const storage = getStorage(app);
 
 const availableColors = [
     "#FFB3BA", "#FFDFBA", "#FFFFBA", "#BAFFC9", "#BAE1FF",
@@ -51,16 +49,11 @@ const sendBtn = document.getElementById("sendBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 const chatTitle = document.getElementById("chatTitle");
 const usernameInput = document.getElementById("username");
-const recordAudioBtn = document.getElementById("recordAudioBtn");
 
 let username = "";
 let userRef;
 let userColor = "";
 let userAnimal = "";
-
-let mediaRecorder;
-let audioChunks = [];
-let isRecording = false;
 
 // Habilitar botón Entrar si hay texto
 usernameInput.addEventListener("input", () => {
@@ -220,18 +213,10 @@ function escucharMensajes() {
             const fecha = new Date(msg.timestamp);
             const hora = fecha.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-            if (msg.audioUrl) {
-                msgDiv.innerHTML = `
-                  <span class="username" style="color:${msg.color}">${msg.usuario}:</span><br>
-                  <audio controls src="${msg.audioUrl}"></audio>
-                  <div class="text-muted small">${hora}</div>
-                `;
-            } else {
-                msgDiv.innerHTML = `
-                  <span class="username" style="color:${msg.color}">${msg.usuario}:</span> ${msg.texto}
-                  <div class="text-muted small">${hora}</div>
-                `;
-            }
+            msgDiv.innerHTML = `
+                <span class="username" style="color:${msg.color}">${msg.usuario}:</span> ${msg.texto}
+                <div class="text-muted small">${hora}</div>
+            `;
             chatBox.appendChild(msgDiv);
         }
         chatBox.scrollTop = chatBox.scrollHeight;
@@ -247,68 +232,6 @@ emojiPicker.addEventListener("emoji-click", (event) => {
     messageInput.value += event.detail.unicode;
 });
 
-// Grabación y envío de audio
-let mediaRecorder;
-let audioChunks = [];
-let isRecording = false;
-
-recordAudioBtn.addEventListener("click", async () => {
-    if (!isRecording) {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            audioChunks = [];
-
-            mediaRecorder.ondataavailable = e => {
-                audioChunks.push(e.data);
-            };
-
-            mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
-                subirAudioYEnviar(audioBlob);
-            };
-
-            mediaRecorder.start();
-            isRecording = true;
-            recordAudioBtn.textContent = "■ Detener grabación";
-            recordAudioBtn.classList.remove("btn-warning");
-            recordAudioBtn.classList.add("btn-danger");
-        } catch (error) {
-            alert("No se pudo acceder al micrófono: " + error.message);
-        }
-    } else {
-        mediaRecorder.stop();
-        isRecording = false;
-        recordAudioBtn.textContent = "🎙 Grabar Audio";
-        recordAudioBtn.classList.remove("btn-danger");
-        recordAudioBtn.classList.add("btn-warning");
-    }
-});
-
-async function subirAudioYEnviar(blob) {
-    const fileName = `audios/${username}_${Date.now()}.webm`;
-    const audioRef = storageRef(storage, fileName);
-
-    try {
-        await uploadBytes(audioRef, blob);
-        const url = await getDownloadURL(audioRef);
-        enviarMensajeAudio(url);
-    } catch (error) {
-        alert("Error al subir audio: " + error.message);
-    }
-}
-
-function enviarMensajeAudio(url) {
-    const mensajesRef = ref(db, "mensajes");
-    const nuevoMensaje = push(mensajesRef);
-    set(nuevoMensaje, {
-        usuario: username,
-        audioUrl: url,
-        timestamp: Date.now(),
-        color: userColor
-    });
-}
-
 // Salir del chat
 logoutBtn.addEventListener("click", () => {
     localStorage.removeItem("chatUsername");
@@ -317,13 +240,5 @@ logoutBtn.addEventListener("click", () => {
     loginSection.style.display = "block";
     usernameInput.value = "";
     startChatBtn.disabled = true;
-
-    // Reset boton grabar
-    if (isRecording) {
-        mediaRecorder.stop();
-        isRecording = false;
-    }
-    recordAudioBtn.textContent = "🎙 Grabar Audio";
-    recordAudioBtn.classList.remove("btn-danger");
-    recordAudioBtn.classList.add("btn-warning");
 });
+
