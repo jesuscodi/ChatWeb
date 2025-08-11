@@ -113,7 +113,7 @@ window.addEventListener("load", async () => {
 // Mostrar usuario arriba con color y animal
 function mostrarUsuario() {
     if (chatTitle) {
-        chatTitle.innerHTML = `<i class="bi bi-person-circle"></i> Usuario: <span style="color:${userColor}">${username}</span> - <span>${userAnimal}</span>`;
+        chatTitle.innerHTML = `<i class="bi bi-person-circle"></i> : <span style="color:${userColor}">${username}</span> - <span>${userAnimal}</span>`;
     }
 }
 
