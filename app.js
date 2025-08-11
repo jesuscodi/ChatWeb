@@ -233,4 +233,11 @@ emojiPicker.addEventListener("emoji-click", (event) => {
 });
 
 // Salir del chat
-logoutBtn.addEventListener("click",
+logoutBtn.addEventListener("click", () => {
+    localStorage.removeItem("chatUsername");
+    remove(userRef);
+    chatSection.style.display = "none";
+    loginSection.style.display = "block";
+    usernameInput.value = "";
+    startChatBtn.disabled = true;
+});
