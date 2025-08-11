@@ -1,55 +1,177 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, push, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, push, set, onValue, remove, get, onDisconnect } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-// Configuración de Firebase (usa tus datos reales aquí)
+// Configuración de Firebase
 const firebaseConfig = {
-    apiKey: "TU_API_KEY",
+    apiKey: "AIzaSyCgHojFMtxO0_FbONRMYdfCt8gxFpJMZxg",
     authDomain: "chatweb-7d65a.firebaseapp.com",
     databaseURL: "https://chatweb-7d65a-default-rtdb.firebaseio.com",
     projectId: "chatweb-7d65a",
-    storageBucket: "chatweb-7d65a.appspot.com",
-    messagingSenderId: "TU_SENDER_ID",
-    appId: "TU_APP_ID"
+    storageBucket: "chatweb-7d65a.firebasestorage.app",
+    messagingSenderId: "741436207771",
+    appId: "1:741436207771:web:707ee44969271b25fb4c3e",
+    measurementId: "G-7L7N83H41N"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// Elementos del DOM
+const availableColors = [
+    "#FFB3BA", "#FFDFBA", "#FFFFBA", "#BAFFC9", "#BAE1FF",
+    "#E6CCFF", "#FFD1DC", "#FFE4B5", "#D5F5E3", "#D6EAF8",
+    "#F9E79F", "#F5B7B1", "#C39BD3", "#AED6F1", "#A3E4D7",
+    "#FAD7A0", "#EDBB99", "#F5CBA7", "#FDEBD0", "#F6DDCC"
+];
+
+const availableAnimals = [
+    "🐶 Perro",
+    "🐱 Gato",
+    "🐰 Conejo",
+    "🦊 Zorro",
+    "🐻 Oso",
+    "🐼 Panda",
+    "🐸 Rana",
+    "🦄 Unicornio",
+    "🐝 Abeja",
+    "🐧 Pingüino"
+];
+
+// DOM elements
 const loginSection = document.getElementById("loginSection");
 const chatSection = document.getElementById("chatSection");
 const chatBox = document.getElementById("chatBox");
+const userList = document.getElementById("userList");
 const messageInput = document.getElementById("messageInput");
 const startChatBtn = document.getElementById("startChatBtn");
 const emojiBtn = document.getElementById("emojiBtn");
 const emojiPicker = document.getElementById("emojiPicker");
 const sendBtn = document.getElementById("sendBtn");
 const logoutBtn = document.getElementById("logoutBtn");
+const chatTitle = document.getElementById("chatTitle");
+const usernameInput = document.getElementById("username");
 
 let username = "";
+let userRef;
+let userColor = "";
+let userAnimal = "";
 
-// Entrar al chat
-startChatBtn.addEventListener("click", () => {
-    const nameInput = document.getElementById("username");
-    if (nameInput.value.trim() !== "") {
-        username = nameInput.value.trim();
-        localStorage.setItem("chatUsername", username);
-        loginSection.style.display = "none";
-        chatSection.style.display = "block";
-        escucharMensajes();
-    }
+// Habilitar botón Entrar si hay texto
+usernameInput.addEventListener("input", () => {
+    startChatBtn.disabled = usernameInput.value.trim().length === 0;
 });
 
-// Revisar si ya hay nombre guardado
-window.addEventListener("load", () => {
+// Manejar login
+loginSection.querySelector('form').addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = usernameInput.value.trim();
+    if (!name) {
+        showError("Por favor, ingresa un nombre válido.");
+        usernameInput.classList.add("is-invalid");
+        return;
+    }
+    usernameInput.classList.remove("is-invalid");
+    clearError();
+
+    username = name;
+    localStorage.setItem("chatUsername", username);
+    loginSection.style.display = "none";
+    chatSection.style.display = "block";
+
+    await registrarUsuario();
+    mostrarUsuario();
+    escucharUsuarios();
+    escucharMensajes();
+});
+
+// Mostrar mensaje error
+function showError(msg) {
+    const errorMsg = document.getElementById("errorMsg");
+    errorMsg.textContent = msg;
+    errorMsg.style.display = "block";
+}
+function clearError() {
+    const errorMsg = document.getElementById("errorMsg");
+    errorMsg.textContent = "";
+    errorMsg.style.display = "none";
+}
+
+// Cargar sesión si existe usuario guardado
+window.addEventListener("load", async () => {
     const savedName = localStorage.getItem("chatUsername");
     if (savedName) {
         username = savedName;
         loginSection.style.display = "none";
         chatSection.style.display = "block";
+
+        await registrarUsuario();
+        mostrarUsuario();
+        escucharUsuarios();
         escucharMensajes();
     }
 });
+
+// Mostrar usuario arriba con color y animal
+function mostrarUsuario() {
+    if (chatTitle) {
+        chatTitle.innerHTML = `<i class="bi bi-person-circle"></i> Usuario: <span style="color:${userColor}">${username}</span> - <span>${userAnimal}</span>`;
+    }
+}
+
+// Obtener color y animal disponible
+async function obtenerIdentidadLibre() {
+    const snapshot = await get(ref(db, "usuarios"));
+    const data = snapshot.val() || {};
+
+    const usadosColores = new Set(Object.values(data).map(u => u.color));
+    const usadosAnimales = new Set(Object.values(data).map(u => u.animal));
+
+    const libresColores = availableColors.filter(c => !usadosColores.has(c));
+    const libresAnimales = availableAnimals.filter(a => !usadosAnimales.has(a));
+
+    const color = libresColores.length > 0
+        ? libresColores[Math.floor(Math.random() * libresColores.length)]
+        : availableColors[Math.floor(Math.random() * availableColors.length)];
+
+    const animal = libresAnimales.length > 0
+        ? libresAnimales[Math.floor(Math.random() * libresAnimales.length)]
+        : availableAnimals[Math.floor(Math.random() * availableAnimals.length)];
+
+    return { color, animal };
+}
+
+// Registrar usuario o recuperar identidad
+async function registrarUsuario() {
+    const userDbRef = ref(db, "usuarios/" + username);
+    const snapshot = await get(userDbRef);
+
+    if (snapshot.exists()) {
+        const data = snapshot.val();
+        userColor = data.color;
+        userAnimal = data.animal;
+
+        set(userDbRef, { conectado: true, timestamp: Date.now(), color: userColor, animal: userAnimal });
+    } else {
+        const identidad = await obtenerIdentidadLibre();
+        userColor = identidad.color;
+        userAnimal = identidad.animal;
+
+        set(userDbRef, { conectado: true, timestamp: Date.now(), color: userColor, animal: userAnimal });
+    }
+
+    userRef = userDbRef;
+    onDisconnect(userRef).remove();
+}
+
+// Escuchar usuarios conectados
+function escucharUsuarios() {
+    onValue(ref(db, "usuarios"), (snapshot) => {
+        userList.innerHTML = "<strong>Conectados:</strong><br>";
+        const data = snapshot.val();
+        for (let u in data) {
+            userList.innerHTML += `<span style="color:${data[u].color}">⬤</span> ${u} - ${data[u].animal}<br>`;
+        }
+    });
+}
 
 // Enviar mensaje
 sendBtn.addEventListener("click", () => {
@@ -57,7 +179,6 @@ sendBtn.addEventListener("click", () => {
     messageInput.value = "";
 });
 
-// Enter para enviar
 messageInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") {
         enviarMensaje(messageInput.value);
@@ -65,7 +186,6 @@ messageInput.addEventListener("keypress", (e) => {
     }
 });
 
-// Función para enviar mensaje
 function enviarMensaje(texto) {
     if (texto.trim() !== "") {
         const mensajesRef = ref(db, "mensajes");
@@ -73,12 +193,13 @@ function enviarMensaje(texto) {
         set(nuevoMensaje, {
             usuario: username,
             texto: texto,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            color: userColor
         });
     }
 }
 
-// Escuchar mensajes
+// Escuchar mensajes en tiempo real
 function escucharMensajes() {
     onValue(ref(db, "mensajes"), (snapshot) => {
         chatBox.innerHTML = "";
@@ -87,29 +208,29 @@ function escucharMensajes() {
             const msg = data[id];
             const msgDiv = document.createElement("div");
             msgDiv.classList.add("message");
-            if (msg.usuario === username) {
-                msgDiv.classList.add("my-message");
-            }
-            msgDiv.innerHTML = `<span class="username">${msg.usuario}:</span> ${msg.texto}`;
+            if (msg.usuario === username) msgDiv.classList.add("my-message");
+
+            const fecha = new Date(msg.timestamp);
+            const hora = fecha.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+            msgDiv.innerHTML = `
+                <span class="username" style="color:${msg.color}">${msg.usuario}:</span> ${msg.texto}
+                <div class="text-muted small">${hora}</div>
+            `;
             chatBox.appendChild(msgDiv);
         }
         chatBox.scrollTop = chatBox.scrollHeight;
     });
 }
 
-// Mostrar/ocultar emojis
+// Mostrar/Ocultar picker emoji
 emojiBtn.addEventListener("click", () => {
     emojiPicker.style.display = emojiPicker.style.display === "none" ? "block" : "none";
 });
 
-// Insertar emoji en el input
 emojiPicker.addEventListener("emoji-click", (event) => {
     messageInput.value += event.detail.unicode;
 });
 
-// Botón salir
-logoutBtn.addEventListener("click", () => {
-    localStorage.removeItem("chatUsername");
-    chatSection.style.display = "none";
-    loginSection.style.display = "block";
-});
+// Salir del chat
+logoutBtn.addEventListener("click",
